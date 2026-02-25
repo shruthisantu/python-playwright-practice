@@ -1,34 +1,44 @@
-# azure-pipelines.yml
 trigger:
 - main
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: ubuntu-latest
 
 steps:
-# 1. Install Python
+# 1️⃣ Use Python
 - task: UsePythonVersion@0
   inputs:
-    versionSpec: '3.9'
-  displayName: 'Install Python 3.9'
+    versionSpec: '3.11'
 
-# 2. Install dependencies
+# 2️⃣ Install dependencies
 - script: |
     python -m pip install --upgrade pip
     pip install -r requirements.txt
-    playwright install chromium
-  displayName: 'Install Python packages'
+    playwright install --with-deps
+  displayName: Install dependencies
 
-# 3. Run tests
+# 3️⃣ Run Playwright tests & generate reports
 - script: |
-    python -m pytest tests/ -v --html=reports/test-report.html
-  displayName: 'Run Playwright Tests'
-  continueOnError: true
+    mkdir -p results/html results/xml
+    pytest tests \
+        --junitxml=results/xml/report.xml \
+        --html=results/html/report.html \
+        --self-contained-html -v
+  displayName: Run tests & generate reports
 
-# 4. Upload test report
+# 4️⃣ Publish JUnit XML for Azure DevOps Test tab
+- task: PublishTestResults@2
+  inputs:
+    testResultsFormat: 'JUnit'
+    testResultsFiles: 'results/xml/report.xml'
+    mergeTestResults: true
+    failTaskOnFailedTests: true
+  displayName: Publish test results
+
+# 5️⃣ Publish HTML report as pipeline artifact
 - task: PublishPipelineArtifact@1
   inputs:
-    targetPath: '$(System.DefaultWorkingDirectory)/reports'
-    artifact: 'TestReports'
+    targetPath: 'results/html'
+    artifact: 'PlaywrightHTMLReport'
     publishLocation: 'pipeline'
-  displayName: 'Publish Test Report'
+  displayName: Publish HTML report
